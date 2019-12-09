@@ -1,24 +1,20 @@
-//Programa: NodeMCU e MQTT - Controle e Monitoramento IoT
-//Autor: Pedro Bertoleti
- 
 #include <ESP8266WiFi.h> // Importa a Biblioteca ESP8266WiFi
 #include <PubSubClient.h> // Importa a Biblioteca PubSubClient
- 
-//defines:
-//defines de id mqtt e tópicos para publicação e subscribe
-#define TOPICO_SUBSCRIBE "PORTAO"     //tópico MQTT de escuta
-#define TOPICO_PUBLISH   "MQTTFilipeFlopRecebe"    //tópico MQTT de envio de informações para Broker
-                                                   //IMPORTANTE: recomendamos fortemente alterar os nomes
-                                                   //            desses tópicos. Caso contrário, há grandes
-                                                   //            chances de você controlar e monitorar o NodeMCU
-                                                   //            de outra pessoa.
-#define ID_MQTT  "PORTAO"     //id mqtt (para identificação de sessão)
-                               //IMPORTANTE: este deve ser único no broker (ou seja, 
-                               //            se um client MQTT tentar entrar com o mesmo 
-                               //            id de outro já conectado ao broker, o broker 
-                               //            irá fechar a conexão de um deles).
-                                
- 
+
+//MQTT
+const char* BROKER_MQTT = "XXXX"; 
+#define USER  "XXXX"
+#define PWD  "XXXX"
+int BROKER_PORT = 10715; 
+#define TOPICO_SUBSCRIBE "PORTAO"     
+#define TOPICO_PUBLISH   "PORTAO"    
+#define ID_MQTT  "PORTAO"
+
+// WIFI
+const char* SSID = "VIVO-8630"; 
+const char* PASSWORD = "XXXX"; 
+
+                          
 //defines - mapeamento de pinos do NodeMCU
 #define D0    16
 #define D1    5
@@ -31,15 +27,6 @@
 #define D8    15
 #define D9    3
 #define D10   1
- 
- 
-// WIFI
-const char* SSID = "XXXXX"; // SSID / nome da rede WI-FI que deseja se conectar
-const char* PASSWORD = "XXXXX"; // Senha da rede WI-FI que deseja se conectar
-  
-// MQTT
-const char* BROKER_MQTT = "XXXXX"; //URL do broker MQTT que se deseja utilizar
-int BROKER_PORT = XXXX; // Porta do Broker MQTT
  
  
 //Variáveis e objetos globais
@@ -101,11 +88,7 @@ void initMQTT()
     MQTT.setCallback(mqtt_callback);            //atribui função de callback (função chamada quando qualquer informação de um dos tópicos subescritos chega)
 }
   
-//Função: função de callback 
-//        esta função é chamada toda vez que uma informação de 
-//        um dos tópicos subescritos chega)
-//Parâmetros: nenhum
-//Retorno: nenhum
+
 void mqtt_callback(char* topic, byte* payload, unsigned int length) 
 {
     String msg;
@@ -117,38 +100,27 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
        msg += c;
     }
    
-    //toma ação dependendo da string recebida:
-    //verifica se deve colocar nivel alto de tensão na saída D0:
-    //IMPORTANTE: o Led já contido na placa é acionado com lógica invertida (ou seja,
-    //enviar HIGH para o output faz o Led apagar / enviar LOW faz o Led acender)
     if (msg.equals("L"))
     {
+        MQTT.publish(TOPICO_PUBLISH, "Ligando");
         digitalWrite(D0, LOW);
         delay(1000);
         digitalWrite(D0, HIGH);
-    
+    }else if (msg.equals("S")) {
+        MQTT.publish(TOPICO_PUBLISH, "ok");
     }
  
-    //verifica se deve colocar nivel alto de tensão na saída D0:
-   // if (msg.equals("D"))
-   // {
-    //    digitalWrite(D0, HIGH);
-     //   EstadoSaida = '0';
-   // }
      
 }
   
-//Função: reconecta-se ao broker MQTT (caso ainda não esteja conectado ou em caso de a conexão cair)
-//        em caso de sucesso na conexão ou reconexão, o subscribe dos tópicos é refeito.
-//Parâmetros: nenhum
-//Retorno: nenhum
+
 void reconnectMQTT() 
 {
     while (!MQTT.connected()) 
     {
         Serial.print("* Tentando se conectar ao Broker MQTT: ");
         Serial.println(BROKER_MQTT);
-        if (MQTT.connect(ID_MQTT,"XXXX","XXXX")) 
+        if (MQTT.connect(ID_MQTT,USER,PWD)) 
         {
             Serial.println("Conectado com sucesso ao broker MQTT!");
             MQTT.subscribe(TOPICO_SUBSCRIBE); 
@@ -162,13 +134,10 @@ void reconnectMQTT()
     }
 }
   
-//Função: reconecta-se ao WiFi
-//Parâmetros: nenhum
-//Retorno: nenhum
+
 void reconectWiFi() 
 {
-    //se já está conectado a rede WI-FI, nada é feito. 
-    //Caso contrário, são efetuadas tentativas de conexão
+
     if (WiFi.status() == WL_CONNECTED)
         return;
          
@@ -187,11 +156,7 @@ void reconectWiFi()
     Serial.println(WiFi.localIP());
 }
  
-//Função: verifica o estado das conexões WiFI e ao broker MQTT. 
-//        Em caso de desconexão (qualquer uma das duas), a conexão
-//        é refeita.
-//Parâmetros: nenhum
-//Retorno: nenhum
+
 void VerificaConexoesWiFIEMQTT(void)
 {
     if (!MQTT.connected()) 
@@ -200,9 +165,7 @@ void VerificaConexoesWiFIEMQTT(void)
      reconectWiFi(); //se não há conexão com o WiFI, a conexão é refeita
 }
  
-//Função: envia ao Broker o estado atual do output 
-//Parâmetros: nenhum
-//Retorno: nenhum
+
 void EnviaEstadoOutputMQTT(void)
 {
     if (EstadoSaida == '0')
@@ -215,9 +178,6 @@ void EnviaEstadoOutputMQTT(void)
     delay(1000);
 }
  
-//Função: inicializa o output em nível lógico baixo
-//Parâmetros: nenhum
-//Retorno: nenhum
 void InitOutput(void)
 {
     //IMPORTANTE: o Led já contido na placa é acionado com lógica invertida (ou seja,
